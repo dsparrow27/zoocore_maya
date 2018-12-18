@@ -2,6 +2,7 @@ import os
 import pprint
 from functools import partial
 
+from zoo.libs.plugin import pluginmanager, plugin
 from zoo.libs.utils import filesystem
 from zoo.libs.maya.qt import mayaui
 from qt import QtWidgets
@@ -18,6 +19,29 @@ class InvalidJsonFileFormat(Exception):
     """Raised in case of invalid formatted json file(.mmlayout)
     """
     pass
+
+
+class Translator(plugin.Plugin):
+    """This class is the base class for all marking menu action translators.
+
+    The purpose of the translator is to convert the marking menu arguments to suitable arguments
+    before the action command is executed.
+    :example:
+        def translator(self, **kwargs):
+            return {"components": kwargs["nodes"]}
+    """
+    id = ""
+
+    def translate(self, **kwargs):
+        """This function is called when the marking menu action is executed.
+
+        :param kwargs: marking menu action arguments to translate, the {"nodes": [om2.MObjectHandle]}
+        :type kwargs: dict
+        :return: The translated arguments to pass to the executing function
+        :rtype: dict
+
+        """
+        pass
 
 
 def findLayout(layoutId):
@@ -41,11 +65,17 @@ class LayoutRegistry(object):
     to the directories of the layout, each path should be separated using :class:`os.pathsep`
     """
     LAYOUT_ENV = "ZOO_MM_LAYOUT_PATH"
+    MENUS_ENV = "ZOO_MM_MENUS_PATH"
+    TRANSLATOR_ENV = "ZOO_MM_TRANSLATOR_PATH"
     __metaclass__ = classtypes.Singleton
 
     def __init__(self):
         self.layouts = {}
+        self.translatorRegistry = pluginmanager.PluginManager(interface=Translator, variableName="id")
+        self.customMenuRegistry = pluginmanager.PluginManager(interface=MarkingMenu, variableName="id")
         self.registerLayoutByEnv(LayoutRegistry.LAYOUT_ENV)
+        self.customMenuRegistry.registryByEnv(LayoutRegistry.MENUS_ENV)
+        self.translatorRegistry.registerPaths(LayoutRegistry.TRANSLATOR_ENV)
 
     def registerLayoutByEnv(self, env):
         """Recursively Registers all layout files with the extension .mmlayout and loads the json data with a layout
@@ -266,6 +296,7 @@ class MarkingMenu(object):
     """Maya MarkingMenu wrapper object to support zoocommands and python executable code. MM layouts are defined by the
     Layout instance class
     """
+    id = ""
 
     def __init__(self, layout, name, parent, commandExecutor):
         """
@@ -381,7 +412,8 @@ class MarkingMenu(object):
         for item, data in layout.items():
             if not data:
                 continue
-            # menu generic
+            translator = data.get("translator")
+            # menu generic, this is the vertical menu
             if item == "generic":
                 self._buildGeneric(data, menu)
                 continue
@@ -389,6 +421,7 @@ class MarkingMenu(object):
             elif isinstance(data, Layout):
                 radMenu = cmds.menuItem(label=data["id"], subMenu=True, radialPosition=item.upper())
                 self.show(data, radMenu, parent)
+            # radial section of the menus
             elif data["type"] == "zooCommand":
                 self.addCommand(data, parent=menu, radialPosition=item.upper())
             elif data["type"] == "python":
