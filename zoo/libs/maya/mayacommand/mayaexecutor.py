@@ -36,9 +36,9 @@ class MayaExecutor(base.ExecutorBase):
         if om2._COMMANDEXECUTOR is None:
             om2._COMMANDEXECUTOR = self
         command = command()
-        command._prepareCommand()
         if not command.isEnabled:
             return
+        command._prepareCommand()
         try:
             command._resolveArguments(kwargs)
         except errors.UserCancel:
