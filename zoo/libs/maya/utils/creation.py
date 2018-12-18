@@ -530,3 +530,42 @@ def createPlusMinusAverage3D(name, inputs, output=None, operation=1):
                 continue
             plugs.connectPlugs(ouPlug, out)
     return pma
+
+
+def createController(node, name, parent=None, visibilitySwitch=None):
+    """Create's a maya kControllerTag node and attaches it to the node
+
+    ..code-block: python
+
+        from zoo.libs.maya.api import scene, nodes
+        from maya.api import OpenMaya as om2
+        sel = scene.getSelectedNodes()
+        ctrlNode = creation.createController(sel[0], "test_tag")
+        # Result: MObject
+
+    :param node: The node to add as the controller
+    :type node: om2.MObject
+    :param name:
+    :type name: str
+    :param parent: The parent kController node
+    :type parent: om2.MObject
+    :param visibilitySwitch: The MPlug which will control to visibility mode. defaults to None
+    :type visibilitySwitch: om2.MPlug
+    :return: The controlTag Mobject
+    :rtype: om2.MObject
+    """
+    controller = nodes.createDGNode(name, "controller")
+    fn = om2.MFnDependencyNode(controller)
+    ctrlFn = om2.MFnDependencyNode(node)
+    # connect up the controllerObject
+    plugs.connectPlugs(ctrlFn.findPlug("message", False), fn.findPlug("controllerObject", False))
+    if parent is not None and parent.apiType() == om2.MFn.kControllerTag:
+        parentFn = om2.MFnDependencyNode(parent)
+        plugs.connectPlugs(parentFn.findPlug("prepopulate", False),
+                           fn.findPlug("prepopulate", False))
+        plugs.connectPlugs(fn.findPlug("parent", False),
+                           plugs.nextAvailableDestElementPlug(parentFn.findPlug("children", False)))
+    # handle the visibility mode MPlug if provided
+    if visibilitySwitch is not None:
+        plugs.connectPlugs(visibilitySwitch, fn.findPlug("visibilityMode", False))
+    return controller
