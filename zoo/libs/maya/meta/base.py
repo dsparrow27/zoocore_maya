@@ -24,6 +24,7 @@ MCLASS_ATTR_NAME = "mClass"
 MVERSION_ATTR_NAME = "mVersion"
 MPARENT_ATTR_NAME = "mMetaParent"
 MCHILDREN_ATTR_NAME = "mMetaChildren"
+MCOMPOUND_ATTR_NAME = "pwMMetaChildren"
 
 
 def lockMetaManager(func):
@@ -349,11 +350,15 @@ class MetaBase(object):
         return attrs
 
     def metaAttributes(self):
-        return [{"name": MCLASS_ATTR_NAME, "value": self.__class__.__name__, "Type": attrtypes.kMFnDataString},
-                {"name": MVERSION_ATTR_NAME, "value": "1.0.0", "Type": attrtypes.kMFnDataString},
-                {"name": MPARENT_ATTR_NAME, "value": None, "Type": attrtypes.kMFnMessageAttribute, "isArray": True,
-                 "lock": False},
-                {"name": MCHILDREN_ATTR_NAME, "value": None, "Type": attrtypes.kMFnMessageAttribute, "lock": False}]
+        children = [{"name": MCLASS_ATTR_NAME, "Type": attrtypes.kMFnDataString, "value": self.__class__.__name__,
+                     "isArray": False, "locked": True},
+                    {"name": MVERSION_ATTR_NAME, "Type": attrtypes.kMFnDataString, "value": "1.0.0",
+                     "isArray": False, "locked": True},
+                    {"name": MPARENT_ATTR_NAME, "Type": attrtypes.kMFnMessageAttribute, "isArray": False,
+                     "locked": False},
+                    {"name": MCHILDREN_ATTR_NAME, "Type": attrtypes.kMFnMessageAttribute, "isArray": False,
+                     "locked": False}]
+        return [{"name": MCOMPOUND_ATTR_NAME, "children": children}]
 
     def __getattr__(self, name):
         if name.startswith("_"):
@@ -515,8 +520,8 @@ class MetaBase(object):
 
     @lockMetaManager
     def addAttribute(self, name, value, Type, isArray=False, lock=True):
-        mobj = self._handle.object()
-        mfn = om2.MFnDependencyNode(mobj)
+        mfn = self._mfn
+        mobj = mfn.object()
         if mfn.hasAttribute(name):
             return mfn.findPlug(name, False)
         try:
